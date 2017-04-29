@@ -1,0 +1,17 @@
+{
+  "name": "edison-node-fuel-guage",
+  "version": "1.0.0",
+  "description": "fuel guage driver for edison",
+  "main": "test.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "async": "^2.3.0",
+    "express": "^4.15.2",
+    "i2c-bus": "^1.2.1",
+    "websockets": "^0.2.0"
+  }
+}

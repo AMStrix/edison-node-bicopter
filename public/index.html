@@ -1,0 +1,139 @@
+<html lang='en'>
+    <head>
+        <title>biquad</title>
+        <script src="js/d3.v4.min.js"></script>
+        <script src="js/jquery.min.js"></script>
+        <script src="js/smoothiecharts.js"></script>
+        <style>
+            html { font-family: arial; }
+            #main > div { margin-bottom: 2px; }
+            button { outline: none; border: none; }
+            button:hover { cursor: pointer; }
+            #isRunning { background: #cccccc; }
+            #isRunning.running { background: green; }
+            #error { position: absolute; top: 0; right: 0; background: orange; padding: 8px; color: white; }
+            .bar { height: 60px; width: 10px; background: #dddddd; display: inline-block; position: relative; }
+            .bar > div { width: 10px; background: green; position: absolute; bottom: 0;}
+        </style>
+    </head>
+
+    <body>
+       <div id="main">
+            <button id="isRunning"></button>
+            <div>gyro</div>
+            <div><canvas id="chartGyro" width="800" height="120"></div>
+            <div>acc</div>
+            <div><canvas id="chartAcc" width="800" height="120"></div>
+            <div>mag</div>
+            <div><canvas id="chartMag" width="800" height="120"></div>
+            <div>
+                <div class="bar"><div id="lspd"></div></div>
+                <div class="bar"><div id="rspd"></div></div>
+            </div>
+            <div id="g"></div>
+            <div id="a"></div>
+            <div id="m"></div>
+            <pre id="pre"></pre>
+            <div id="error" style="display: none"></div>
+       </div>
+
+        <script>
+        let DELAY = 500;
+          document.body.onload = function() {
+
+            let state = {};
+            let socket = new WebSocket('ws://edison-beta.local:88/');
+            let chartGyro = new SmoothieChart();
+            let chartAcc = new SmoothieChart();
+            let chartMag = new SmoothieChart();
+            socket.onopen = function() { socket.send('status'); };
+            socket.onmessage = function(message) { updateState(JSON.parse(message.data)); };
+            window.socket = socket;
+
+
+
+            $('#isRunning').on('click', function() {
+                socket.send(state.running ? 'stop' : 'start');
+            });
+
+            let chartLines = {
+                gx: new TimeSeries(),
+                gy: new TimeSeries(),
+                gz: new TimeSeries(),
+                ax: new TimeSeries(),
+                ay: new TimeSeries(),
+                az: new TimeSeries(),
+                mx: new TimeSeries(),
+                my: new TimeSeries(),
+                mz: new TimeSeries()
+            };
+            chartGyro.streamTo($('#chartGyro')[0], DELAY);
+            chartGyro.addTimeSeries(chartLines.gx, { strokeStyle: 'rgb(0, 255, 0)' });
+            chartGyro.addTimeSeries(chartLines.gy, { strokeStyle: 'rgb(135, 255, 135)' });
+            chartGyro.addTimeSeries(chartLines.gz, { strokeStyle: 'rgb(217, 255, 217)' });
+            chartAcc.streamTo($('#chartAcc')[0], DELAY);
+            chartAcc.addTimeSeries(chartLines.ax, { strokeStyle: 'rgb(255, 0, 0)' });
+            chartAcc.addTimeSeries(chartLines.ay, { strokeStyle: 'rgb(255, 135, 135)' });
+            chartAcc.addTimeSeries(chartLines.az, { strokeStyle: 'rgb(255, 217, 217)' });
+            chartMag.streamTo($('#chartMag')[0], DELAY);
+            chartMag.addTimeSeries(chartLines.mx, { strokeStyle: 'rgb(0, 0, 255)' });
+            chartMag.addTimeSeries(chartLines.my, { strokeStyle: 'rgb(135, 135, 255)' });
+            chartMag.addTimeSeries(chartLines.mz, { strokeStyle: 'rgb(217, 217, 255)' });
+
+
+
+            function updateState(newState) {
+                state = newState;
+                updateDom();
+            }
+            function updateDom() {
+                $('#isRunning')[state.running ? 'addClass' : 'removeClass']('running')
+                    .text(state.running ? 'stop' : 'start');
+                $('#pre').text(JSON.stringify(state, null, 2));
+                $('#lspd').css({height: (state.lspd*100) + '%'});
+                $('#rspd').css({height: (state.rspd*100) + '%'});
+                if (state.running) {
+                    $('#g').text('gyro: ' + state.ndof.gyro.vector.x.toFixed(3) + ', ' +
+                        state.ndof.gyro.vector.y.toFixed(3) + ', ' +
+                        state.ndof.gyro.vector.z.toFixed(3) );
+                    $('#a').text('acc: ' + state.ndof.acc.vector.x.toFixed(3) + ', ' +
+                        state.ndof.acc.vector.y.toFixed(3) + ', ' +
+                        state.ndof.acc.vector.z.toFixed(3) );
+                }
+                updateChartLines();
+            }
+            function updateChartLines() {
+                if (state.running) {
+                    chartGyro.start();
+                    chartAcc.start();
+                    chartMag.start();
+                    chartLines.gx.append(new Date().getTime(), state.ndof.gyro.vector.x);
+                    chartLines.gy.append(new Date().getTime(), state.ndof.gyro.vector.y);
+                    chartLines.gz.append(new Date().getTime(), state.ndof.gyro.vector.z);
+                    chartLines.ax.append(new Date().getTime(), state.ndof.acc.vector.x);
+                    chartLines.ay.append(new Date().getTime(), state.ndof.acc.vector.y);
+                    chartLines.az.append(new Date().getTime(), state.ndof.acc.vector.z);
+                    chartLines.mx.append(new Date().getTime(), state.ndof.mag.vector.x);
+                    chartLines.my.append(new Date().getTime(), state.ndof.mag.vector.y);
+                    chartLines.mz.append(new Date().getTime(), state.ndof.mag.vector.z);
+                } else {
+                    chartGyro.stop();
+                    chartAcc.stop();
+                    chartMag.stop();
+                }
+            }
+
+            setInterval(function() {
+                try {
+                    socket.send('status');
+                    $('#error').hide();
+                } catch (e) {
+                    $('#error').text(e.message).show();
+                    console.log('Booo!', e);
+                }
+            }, DELAY);
+        }
+        </script>
+    </body>
+</html>
+
