@@ -18,3 +18,4 @@ api/config.js
 
 # vim
 *.swp
+sftp-config.json
