@@ -33,6 +33,12 @@ wss.on('connect', function(s) {
                     flight.setState('throttleDelta', v);
                 }
             }
+            if (m === 'set.flight.measureBias') {
+                flight.setState('isMeasureBias');
+            }
+            if (m === 'set.flight.calibrateEsc') {
+                flight.setState('calibrateEsc');
+            }
         }
     })
 }).listen(88);

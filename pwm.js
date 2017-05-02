@@ -38,7 +38,7 @@ pwm.init = function() {
     pwm.pwm = new Pca9685Driver({
         i2c: i2cBus.openSync(1),
         address: 0x40,
-        frequency: 50,
+        frequency: 100,
         debug: DEBUG
     }, function(e) {
         if (e) console.log('[ERROR] pwm.js init()', e);
