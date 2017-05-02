@@ -22,6 +22,8 @@ class Chart extends React.Component {
     }
     componentDidMount() {
         this.smoothieChart = new SmoothieChart({
+            maxValue: this.props.max,
+            minValue: this.props.min,
             labels: {
                 fillStyle: '#cccccc'
             },

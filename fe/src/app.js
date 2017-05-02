@@ -2,6 +2,7 @@ import React from 'react';
 import { render } from 'react-dom';
 import styled from 'styled-components';
 import Chart from './Chart';
+import Visual from './Visual';
 
 const DELAY = 500;
 const SOCKET = {
@@ -19,6 +20,12 @@ function event(key, data) {
     }
     if (key === 'stopFlight') {
         window._socket.send('stop');
+    }
+    if (key === 'measureBias') {
+        window._socket.send('set.flight.measureBias');
+    }
+    if (key === 'calibrateEsc') {
+        window._socket.send('set.flight.calibrateEsc');
     }
 }
 
@@ -100,14 +107,68 @@ const Dashboard = p =>
     <SocketStatus {...p} />
     { p.isSocketConnected &&
         <div>
-            <FlightControl {...p.status} onStartFlight={isStart => event(isStart?'startFlight':'stopFlight')} />
-            <Chart {...(p.status && p.status.ndof.gyro)} label='gyro' delay={DELAY} />
-            <Chart {...(p.status && p.status.ndof.acc)} label='acc' delay={DELAY} />
-            <Chart {...(p.status && p.status.ndof.mag)} label='mag' delay={DELAY} />
+            <FlightControl {...p.status}
+                onStartFlight={isStart => event(isStart?'startFlight':'stopFlight')}
+                onMeasureBias={() => event('measureBias')}
+                onCalibrateEsc={() => event('calibrateEsc')}
+            />
+            <Chart {...(p.status && p.status.ndof.gyro)} min={-100} max={100} label='gyro' delay={DELAY} />
+            <Chart {...(p.status && p.status.ndof.acc)} min={-1} max={1} label='acc' delay={DELAY} />
+            <Chart {...(p.status && p.status.ndof.mag)} min={-1} max={1} label='mag' delay={DELAY} />
+            <Visual {...(p.status)} delay={DELAY} />
+
+                <VectorInfo {...(p.status && p.status.ndof.gyro)} label="gyro" />
+                <VectorInfo {...(p.status && { vector: {
+                    x: p.status.bias.gyro.x.bias,
+                    y: p.status.bias.gyro.y.bias,
+                    z: p.status.bias.gyro.z.bias
+                }})} label="gyro bias" />
+                &nbsp;
+                <VectorInfo {...(p.status && p.status.ndof.acc)} label="acc" />
+                <VectorInfo {...(p.status && { vector: {
+                    x: p.status.bias.acc.x.bias,
+                    y: p.status.bias.acc.y.bias,
+                    z: p.status.bias.acc.z.bias
+                }})} label="acc bias" />
+                &nbsp;
+                <VectorInfo {...(p.status && p.status.ndof.mag)} label="mag" />
+                <VectorInfo {...(p.status && { vector: {
+                    x: p.status.bias.mag.x.bias,
+                    y: p.status.bias.mag.y.bias,
+                    z: p.status.bias.mag.z.bias
+                }})} label="mag bias" />
+
+            <FilterInfo {...(p.status && p.status.filter)} />
         </div>
     }
 </div>;
 
+function fmtNumFixed(n) {
+    return n && n.toFixed(3) || '0.000';
+}
+const VectorInfoStyled = styled.div`
+    display: inline-block;
+    padding-right: 12px;
+`;
+const VectorInfo = p =>
+<VectorInfoStyled>
+    <div>{ p.label }</div>
+    { p.vector && <div>
+        <div>x {' ' + fmtNumFixed(p.vector.x)}</div>
+        <div>y {' ' + fmtNumFixed(p.vector.y)}</div>
+        <div>z {' ' + fmtNumFixed(p.vector.z)}</div>
+    </div>}
+</VectorInfoStyled>;
+
+const FilterInfo = p =>
+<div>
+    <div>
+        Filter Info
+        min: { ' ' + p.tickDiffMin + ', '}
+        avg: { ' ' + fmtNumFixed(p.runningTickDiffAvg) + ', '}
+        max: { ' ' + p.tickDiffMax }
+    </div>
+</div>
 
 const StatusBox = styled.div`
     display: inline-block;
@@ -133,15 +194,33 @@ const SocketStatus = p =>
 const FlightControlStyled = styled.div`
     margin: 4px 0 4px 0;
     & .startBtn {
-        background: { p => p.running ? 'green' : '#cccccc' }
+        background: ${ p => p.running ? 'green' : '#cccccc' }
+    }
+    & .measureBiasBtn {
+        background: ${ p => p.isMeasureBias ? 'red' : '#cccccc' }
+    }
+    & .calibrateEscBtn {
+        background: ${ p => p.throttle && p.throttle.left == 1 ? 'red' : '#cccccc' }
     }
 `;
 const FlightControl = p =>
-<FlightControlStyled>
+<FlightControlStyled {...p}>
     <button className="startBtn" onClick={() => p.onStartFlight(!p.running)} >
         { p.running ? 'stop' : 'start' }
     </button>
     &nbsp; flight loop
+    &nbsp;&nbsp;
+    { p.running &&
+        <button className="measureBiasBtn" onClick={p.onMeasureBias} >
+            { p.isMeasureBias ? 'measuring bias...' :  'measure bias' }
+        </button>
+    }
+    &nbsp;&nbsp;
+    { p.running &&
+        <button className="calibrateEscBtn" onClick={p.onCalibrateEsc} >
+            calibrate esc (toggle throttle max) [{ p.throttle.left + '/' + p.throttle.right }]
+        </button>
+    }
 </FlightControlStyled>;
 
 
